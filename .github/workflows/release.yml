@@ -1,0 +1,157 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+
+      - name: Build vpncli.exe
+        shell: bash
+        run: |
+          cd core
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -H windowsgui" -o ../build/vpncli.exe ./cmd/vpncli
+
+      - name: Download xray
+        shell: bash
+        run: |
+          cd build
+          curl -sL https://github.com/XTLS/Xray-core/releases/latest/download/Xray-windows-64.zip -o xray.zip
+          unzip -o xray.zip xray.exe geoip.dat geosite.dat
+          rm -f xray.zip
+
+      - name: Download tun2socks
+        shell: bash
+        run: |
+          cd build
+          curl -sL https://github.com/xjasonlyu/tun2socks/releases/download/v2.5.2/tun2socks-windows-amd64.zip -o tun2socks.zip
+          unzip -o tun2socks.zip
+          rm -f tun2socks.zip
+
+      - name: Download wintun
+        shell: bash
+        run: |
+          cd build
+          curl -sL https://www.wintun.net/builds/wintun-0.14.1.zip -o wintun.zip
+          unzip -o wintun.zip wintun/bin/amd64/wintun.dll
+          mv wintun/bin/amd64/wintun.dll .
+          rm -rf wintun wintun.zip
+
+      - name: Build Flutter Windows app
+        shell: bash
+        run: |
+          cd app
+          flutter pub get
+          flutter build windows --release
+
+      - name: Install Inno Setup
+        shell: bash
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: bash
+        run: |
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer/servcvpn.iss
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/ServcVPN-Setup-*.exe
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Build xray for Android arm64
+        run: |
+          go install github.com/nicedoc/xray-core/main@latest 2>/dev/null || true
+          mkdir -p app/android/app/src/main/jniLibs/arm64-v8a
+          cd core
+          GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -tags "android" -o ../app/android/app/src/main/jniLibs/arm64-v8a/libxray.so ./cmd/vpncli || true
+
+      - name: Download prebuilt xray for Android
+        run: |
+          mkdir -p app/android/app/src/main/jniLibs/arm64-v8a
+          curl -sL https://github.com/XTLS/Xray-core/releases/latest/download/Xray-android-arm64-v8a.zip -o xray-android.zip
+          unzip -o xray-android.zip xray -d /tmp/xray-android || true
+          if [ -f /tmp/xray-android/xray ]; then
+            cp /tmp/xray-android/xray app/android/app/src/main/jniLibs/arm64-v8a/libxray.so
+          fi
+          rm -f xray-android.zip
+
+      - name: Build tun2socks for Android arm64
+        run: |
+          mkdir -p app/android/app/src/main/jniLibs/arm64-v8a
+          cd tun2sockslib
+          GOOS=android GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ../app/android/app/src/main/jniLibs/arm64-v8a/libtun2socks.so github.com/xjasonlyu/tun2socks/v2
+
+      - name: Build Android APK
+        run: |
+          cd app
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+
+  release:
+    needs: [build-windows, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            windows-installer/*
+            android-apk/*
+          generate_release_notes: true
