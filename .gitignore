@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+dist/
+core/vpncli.exe
+core/nul
+*.exe~
+nul
+
+# Logs
+*.log
+
+# Flutter / Dart
+.dart_tool/
+.packages
+app/build/
+app/.flutter-plugins-dependencies
+
+# Android native libs (built from source)
+app/android/app/src/main/jniLibs/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude
+.claude/
+
+# Go
+tun2sockslib/tun2socks
+*.test
+
+# Temp
+*.tmp
+*.bak

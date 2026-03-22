@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package vpnservice;
+
+option go_package = "servc_vpn/core/api/proto";
+
+service VPNService {
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+  rpc GetStats(StatsRequest) returns (StatsResponse);
+  rpc SetTLSProfile(TLSProfileRequest) returns (TLSProfileResponse);
+  rpc RunLeakTest(LeakTestRequest) returns (LeakTestResponse);
+  rpc GetServers(ServersRequest) returns (ServersResponse);
+  rpc RefreshSubscription(SubscriptionRequest) returns (SubscriptionResponse);
+  rpc OnStatusChange(StatusRequest) returns (stream StatusEvent);
+  rpc StreamStats(StatsRequest) returns (stream StatsResponse);
+  rpc PingServer(PingRequest) returns (PingResponse);
+}
+
+message ConnectRequest {
+  string config_uri = 1;       // vless://, trojan://, vmess:// URI
+  string tls_fingerprint = 2;  // chrome, firefox, safari, edge, random, auto
+  bool kill_switch = 3;
+  string masking_sni = 4;      // override SNI to mask as vk.com, ok.ru, etc.
+}
+
+message ConnectResponse {
+  bool success = 1;
+  string message = 2;
+  string server_ip = 3;
+}
+
+message DisconnectRequest {}
+
+message DisconnectResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StatsRequest {}
+
+message StatsResponse {
+  int64 upload_bytes = 1;
+  int64 download_bytes = 2;
+  int64 upload_speed = 3;    // bytes per second
+  int64 download_speed = 4;  // bytes per second
+  int32 ping_ms = 5;
+  int64 connected_since = 6; // unix timestamp
+  string state = 7;          // disconnected, connecting, connected, disconnecting
+}
+
+message TLSProfileRequest {
+  string profile = 1;         // chrome, firefox, safari, edge, random, auto
+  bool rotation_enabled = 2;
+  int32 rotation_interval = 3; // seconds
+}
+
+message TLSProfileResponse {
+  bool success = 1;
+  string active_profile = 2;
+  string ja3_hash = 3;
+}
+
+message LeakTestRequest {}
+
+message LeakTestResponse {
+  string visible_ip = 1;
+  string real_ip = 2;
+  bool ip_leaked = 3;
+  repeated string dns_servers = 4;
+  bool dns_leaked = 5;
+}
+
+message ServersRequest {}
+
+message ServersResponse {
+  repeated ServerInfo servers = 1;
+}
+
+message ServerInfo {
+  string name = 1;
+  string address = 2;
+  int32 port = 3;
+  string protocol = 4;
+  int32 ping_ms = 5;
+  string config_uri = 6;
+}
+
+message SubscriptionRequest {
+  string url = 1;
+}
+
+message SubscriptionResponse {
+  bool success = 1;
+  int32 servers_count = 2;
+  string message = 3;
+}
+
+message PingRequest {
+  string address = 1;
+  int32 port = 2;
+}
+
+message PingResponse {
+  int32 ping_ms = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message StatusRequest {}
+
+message StatusEvent {
+  string state = 1;
+  string message = 2;
+  int64 timestamp = 3;
+}
