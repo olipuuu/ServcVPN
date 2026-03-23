@@ -27,6 +27,7 @@ type ConnectRequest struct {
 	TlsFingerprint string                 `protobuf:"bytes,2,opt,name=tls_fingerprint,json=tlsFingerprint,proto3" json:"tls_fingerprint,omitempty"` // chrome, firefox, safari, edge, random, auto
 	KillSwitch     bool                   `protobuf:"varint,3,opt,name=kill_switch,json=killSwitch,proto3" json:"kill_switch,omitempty"`
 	MaskingSni     string                 `protobuf:"bytes,4,opt,name=masking_sni,json=maskingSni,proto3" json:"masking_sni,omitempty"` // override SNI to mask as vk.com, ok.ru, etc.
+	FallbackUris   []string               `protobuf:"bytes,5,rep,name=fallback_uris,json=fallbackUris,proto3" json:"fallback_uris,omitempty"`         // fallback URIs
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -87,6 +88,13 @@ func (x *ConnectRequest) GetMaskingSni() string {
 		return x.MaskingSni
 	}
 	return ""
+}
+
+func (x *ConnectRequest) GetFallbackUris() []string {
+	if x != nil {
+		return x.FallbackUris
+	}
+	return nil
 }
 
 type ConnectResponse struct {

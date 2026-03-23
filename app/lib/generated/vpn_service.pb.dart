@@ -23,12 +23,14 @@ class ConnectRequest extends $pb.GeneratedMessage {
     $core.String? tlsFingerprint,
     $core.bool? killSwitch,
     $core.String? maskingSni,
+    $core.Iterable<$core.String>? fallbackUris,
   }) {
     final result = create();
     if (configUri != null) result.configUri = configUri;
     if (tlsFingerprint != null) result.tlsFingerprint = tlsFingerprint;
     if (killSwitch != null) result.killSwitch = killSwitch;
     if (maskingSni != null) result.maskingSni = maskingSni;
+    if (fallbackUris != null) result.fallbackUris.addAll(fallbackUris);
     return result;
   }
 
@@ -49,6 +51,7 @@ class ConnectRequest extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'tlsFingerprint')
     ..aOB(3, _omitFieldNames ? '' : 'killSwitch')
     ..aOS(4, _omitFieldNames ? '' : 'maskingSni')
+    ..pPS(5, _omitFieldNames ? '' : 'fallbackUris')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -105,6 +108,9 @@ class ConnectRequest extends $pb.GeneratedMessage {
   $core.bool hasMaskingSni() => $_has(3);
   @$pb.TagNumber(4)
   void clearMaskingSni() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.List<$core.String> get fallbackUris => $_getList(4);
 }
 
 class ConnectResponse extends $pb.GeneratedMessage {

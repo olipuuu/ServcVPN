@@ -154,7 +154,182 @@ class _ServersScreenState extends State<ServersScreen> {
       onTap: () {
         widget.serverStorage.setActiveIndex(index);
       },
+      onLongPress: () => _showServerOptions(server, index),
     );
+  }
+
+  void _showServerOptions(ServerInfo server, int index) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(server.name,
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('${server.protocol.toUpperCase()} - ${server.address}:${server.port}',
+                    style: const TextStyle(color: Colors.white38, fontSize: 13)),
+                if (server.fallbackUris.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ...server.fallbackUris.asMap().entries.map((entry) {
+                    final uri = entry.value;
+                    final proto = _extractProtocol(uri);
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A2A3E),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.alt_route, color: Color(0xFF6C63FF), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('Fallback: $proto',
+                                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              final newFallbacks = List<String>.from(server.fallbackUris);
+                              newFallbacks.removeAt(entry.key);
+                              widget.serverStorage.updateServer(
+                                index,
+                                server.copyWith(fallbackUris: newFallbacks),
+                              );
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+                const SizedBox(height: 12),
+                _menuItem(
+                  icon: Icons.alt_route,
+                  title: 'Add fallback protocol',
+                  subtitle: 'Alternative connection if primary fails',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAddFallbackDialog(server, index);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _menuItem(
+                  icon: Icons.delete,
+                  title: 'Remove server',
+                  subtitle: 'Delete this server',
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.serverStorage.removeServer(index);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddFallbackDialog(ServerInfo server, int index) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E2E),
+          title: const Text('Add fallback protocol',
+              style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Add an alternative protocol URI for the same server. '
+                'If the primary connection fails, fallbacks will be tried in order.',
+                style: TextStyle(color: Colors.white38, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'vless://... or trojan://... or vmess://...',
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  filled: true,
+                  fillColor: const Color(0xFF2A2A3E),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.content_paste, color: Colors.white38),
+                    onPressed: () async {
+                      final data = await Clipboard.getData(Clipboard.kTextPlain);
+                      if (data?.text != null) controller.text = data!.text!;
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            ),
+            FilledButton(
+              onPressed: () {
+                final uri = controller.text.trim();
+                if (ConfigImport.isValidUri(uri)) {
+                  final newFallbacks = [...server.fallbackUris, uri];
+                  widget.serverStorage.updateServer(
+                    index,
+                    server.copyWith(fallbackUris: newFallbacks),
+                  );
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text('Added ${_extractProtocol(uri)} fallback')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(content: Text('Invalid URI format')),
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6C63FF)),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _extractProtocol(String uri) {
+    final idx = uri.indexOf('://');
+    return idx > 0 ? uri.substring(0, idx).toUpperCase() : 'UNKNOWN';
   }
 
   void _showAddMenu() {

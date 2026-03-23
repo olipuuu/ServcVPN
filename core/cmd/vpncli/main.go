@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
@@ -90,7 +91,23 @@ func printUsage() {
 	fmt.Println("  profiles   List available TLS fingerprint profiles")
 }
 
+func killOldVpncli() {
+	// Kill any existing vpncli.exe processes (except ourselves)
+	myPid := os.Getpid()
+	out, err := exec.Command("powershell", "-Command",
+		fmt.Sprintf("Get-Process vpncli -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne %d } | ForEach-Object { Stop-Process -Id $_.Id -Force }", myPid)).CombinedOutput()
+	if err == nil && len(out) > 0 {
+		fmt.Printf("[CLEANUP] Killed old vpncli processes\n")
+	}
+	// Also kill orphaned xray/tun2socks
+	exec.Command("taskkill", "/F", "/IM", "tun2socks-windows-amd64.exe").Run()
+	time.Sleep(500 * time.Millisecond)
+}
+
 func runServe(port string) {
+	// Kill old vpncli and VPN processes before starting
+	killOldVpncli()
+
 	// Clean up leftover VPN processes from previous sessions
 	// so real IP detection works correctly
 	engine.CleanupOldProcesses()

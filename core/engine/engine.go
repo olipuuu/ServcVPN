@@ -115,12 +115,52 @@ func CleanupOldProcesses() {
 	fmt.Println("[CLEANUP] Old VPN processes and routes cleaned up")
 }
 
+// ConnectWithFallback tries multiple config URIs in order until one connects.
+func (e *Engine) ConnectWithFallback(configURIs []string, fingerprint string, enableKillSwitch bool, maskingSNI string) error {
+	if len(configURIs) == 0 {
+		return fmt.Errorf("no config URIs provided")
+	}
+
+	var lastErr error
+	for i, uri := range configURIs {
+		uri = strings.TrimSpace(uri)
+		if uri == "" {
+			continue
+		}
+		fmt.Printf("[ENGINE] Trying protocol %d/%d: %s\n", i+1, len(configURIs), uriProtocol(uri))
+		err := e.Connect(uri, fingerprint, enableKillSwitch, maskingSNI)
+		if err == nil {
+			fmt.Printf("[ENGINE] Connected via protocol %d/%d\n", i+1, len(configURIs))
+			return nil
+		}
+		lastErr = err
+		fmt.Printf("[ENGINE] Protocol %d/%d failed: %s\n", i+1, len(configURIs), err)
+		// Reset state for next attempt
+		e.mu.Lock()
+		e.state = StateDisconnected
+		e.mu.Unlock()
+		time.Sleep(1 * time.Second)
+	}
+	return fmt.Errorf("all %d protocols failed, last error: %w", len(configURIs), lastErr)
+}
+
+// uriProtocol extracts protocol name from URI for logging.
+func uriProtocol(uri string) string {
+	if idx := strings.Index(uri, "://"); idx > 0 {
+		return uri[:idx]
+	}
+	return "unknown"
+}
+
 // Connect establishes a VPN connection by launching xray as a subprocess.
 func (e *Engine) Connect(configURI string, fingerprint string, enableKillSwitch bool, maskingSNI string) error {
 	e.mu.Lock()
 	if e.state == StateConnected || e.state == StateConnecting {
 		e.mu.Unlock()
-		return fmt.Errorf("already connected or connecting")
+		// Force disconnect before reconnecting
+		fmt.Println("[ENGINE] Force disconnecting before new connection...")
+		e.Disconnect()
+		e.mu.Lock()
 	}
 	e.setState(StateConnecting)
 	e.mu.Unlock()
@@ -167,7 +207,7 @@ func (e *Engine) Connect(configURI string, fingerprint string, enableKillSwitch 
 	fmt.Printf("[ENGINE] Starting xray: %s\n", xrayPath)
 	fmt.Printf("[ENGINE] Config: %s\n", configPath)
 
-	// Redirect xray output to NUL to avoid handle inheritance issues
+	// Redirect xray stdout/stderr to NUL; xray writes its own logs via config
 	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
 		e.setState(StateDisconnected)

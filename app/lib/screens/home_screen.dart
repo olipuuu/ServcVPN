@@ -307,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         return;
       }
-      vpn.connect(activeServer.configUri);
+      vpn.connect(activeServer.configUri, fallbackUris: activeServer.fallbackUris);
     }
   }
 

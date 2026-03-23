@@ -5,18 +5,21 @@ class ServerCard extends StatelessWidget {
   final ServerInfo server;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const ServerCard({
     super.key,
     required this.server,
     this.isSelected = false,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 8),
@@ -73,6 +76,28 @@ class ServerCard extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Fallback count badge
+            if (server.fallbackUris.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF03DAC6).withAlpha(30),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.alt_route, size: 12, color: Color(0xFF03DAC6)),
+                    const SizedBox(width: 2),
+                    Text(
+                      '+${server.fallbackUris.length}',
+                      style: const TextStyle(color: Color(0xFF03DAC6), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
 
             // Ping
             if (server.pingMs > 0)

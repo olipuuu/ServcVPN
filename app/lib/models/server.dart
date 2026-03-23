@@ -5,6 +5,7 @@ class ServerInfo {
   final String protocol;
   final int pingMs;
   final String configUri;
+  final List<String> fallbackUris; // alternative protocol URIs for same server
 
   const ServerInfo({
     required this.name,
@@ -13,7 +14,11 @@ class ServerInfo {
     required this.protocol,
     this.pingMs = 0,
     required this.configUri,
+    this.fallbackUris = const [],
   });
+
+  /// All URIs: primary + fallbacks
+  List<String> get allUris => [configUri, ...fallbackUris];
 
   Map<String, dynamic> toJson() {
     return {
@@ -23,6 +28,7 @@ class ServerInfo {
       'protocol': protocol,
       'pingMs': pingMs,
       'configUri': configUri,
+      'fallbackUris': fallbackUris,
     };
   }
 
@@ -34,6 +40,10 @@ class ServerInfo {
       protocol: json['protocol'] as String? ?? '',
       pingMs: json['pingMs'] as int? ?? 0,
       configUri: json['configUri'] as String? ?? '',
+      fallbackUris: (json['fallbackUris'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
     );
   }
 
@@ -44,6 +54,7 @@ class ServerInfo {
     String? protocol,
     int? pingMs,
     String? configUri,
+    List<String>? fallbackUris,
   }) {
     return ServerInfo(
       name: name ?? this.name,
@@ -52,6 +63,7 @@ class ServerInfo {
       protocol: protocol ?? this.protocol,
       pingMs: pingMs ?? this.pingMs,
       configUri: configUri ?? this.configUri,
+      fallbackUris: fallbackUris ?? this.fallbackUris,
     );
   }
 }

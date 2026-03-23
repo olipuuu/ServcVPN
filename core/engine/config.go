@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -115,6 +117,9 @@ func parseTrojan(uri string) (*ServerConfig, error) {
 		Security:    params.Get("security"),
 		SNI:         params.Get("sni"),
 		Fingerprint: params.Get("fp"),
+		PublicKey:   params.Get("pbk"),
+		ShortID:     params.Get("sid"),
+		SpiderX:     params.Get("spx"),
 		Network:     params.Get("type"),
 		Remark:      parsed.Fragment,
 		Extra:       make(map[string]string),
@@ -227,10 +232,22 @@ func (c *ServerConfig) ToXrayConfig(fingerprint string, maskingSNI ...string) ([
 		c.SNI = maskingSNI[0]
 	}
 
+	// Use xray's own log file so the detached process manages its own handles
+	xrayLogPath := ""
+	if exePath, err := os.Executable(); err == nil {
+		xrayLogPath = filepath.Join(filepath.Dir(exePath), "xray_output.log")
+	}
+
+	logConfig := map[string]interface{}{
+		"loglevel": "info",
+	}
+	if xrayLogPath != "" {
+		logConfig["access"] = xrayLogPath
+		logConfig["error"] = xrayLogPath
+	}
+
 	config := map[string]interface{}{
-		"log": map[string]interface{}{
-			"loglevel": "info",
-		},
+		"log": logConfig,
 		"api": map[string]interface{}{
 			"tag": "api",
 			"services": []string{

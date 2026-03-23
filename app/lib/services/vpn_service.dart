@@ -167,16 +167,47 @@ class VpnService extends ChangeNotifier {
     _client = VPNServiceClient(_channel!);
   }
 
-  Future<void> connect(String configUri) async {
+  Future<void> connect(String configUri, {List<String> fallbackUris = const []}) async {
     _state = VpnState.connecting;
     _lastError = null;
     notifyListeners();
 
     if (_isAndroid) {
-      await _connectAndroid(configUri);
+      await _connectAndroidWithFallback(configUri, fallbackUris);
     } else {
-      await _connectDesktop(configUri);
+      await _connectDesktop(configUri, fallbackUris);
     }
+  }
+
+  Future<void> _connectAndroidWithFallback(String configUri, List<String> fallbackUris) async {
+    final allUris = [configUri, ...fallbackUris];
+    String? lastError;
+    for (int i = 0; i < allUris.length; i++) {
+      final uri = allUris[i];
+      debugPrint('[VPN] Trying protocol ${i + 1}/${allUris.length}: ${_uriProtocol(uri)}');
+      try {
+        await _connectAndroid(uri);
+        // If we get here without error, connection succeeded
+        return;
+      } catch (e) {
+        lastError = e.toString();
+        debugPrint('[VPN] Protocol ${i + 1} failed: $lastError');
+        if (i < allUris.length - 1) {
+          // Reset state for next attempt
+          _state = VpnState.connecting;
+          notifyListeners();
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+    }
+    _state = VpnState.disconnected;
+    _lastError = 'All protocols failed: $lastError';
+    notifyListeners();
+  }
+
+  String _uriProtocol(String uri) {
+    final idx = uri.indexOf('://');
+    return idx > 0 ? uri.substring(0, idx) : 'unknown';
   }
 
   Future<void> _connectAndroid(String configUri) async {
@@ -204,7 +235,7 @@ class VpnService extends ChangeNotifier {
     }
   }
 
-  Future<void> _connectDesktop(String configUri) async {
+  Future<void> _connectDesktop(String configUri, List<String> fallbackUris) async {
     if (_client == null) {
       _state = VpnState.disconnected;
       _lastError = 'gRPC client not initialized';
@@ -213,11 +244,15 @@ class VpnService extends ChangeNotifier {
     }
 
     try {
-      final response = await _client!.connect(ConnectRequest()
+      final request = ConnectRequest()
         ..configUri = configUri
         ..tlsFingerprint = _fingerprint
         ..killSwitch = _killSwitchEnabled
-        ..maskingSni = _maskingSni);
+        ..maskingSni = _maskingSni;
+      if (fallbackUris.isNotEmpty) {
+        request.fallbackUris.addAll(fallbackUris);
+      }
+      final response = await _client!.connect(request);
 
       if (response.success) {
         _state = VpnState.connected;

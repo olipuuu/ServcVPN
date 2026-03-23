@@ -67,7 +67,16 @@ func (s *VPNServer) Connect(ctx context.Context, req *pb.ConnectRequest) (*pb.Co
 		}
 	}
 
-	err := s.engine.Connect(req.ConfigUri, req.TlsFingerprint, req.KillSwitch, req.MaskingSni)
+	// Build list of URIs: primary + fallbacks
+	allURIs := []string{req.ConfigUri}
+	allURIs = append(allURIs, req.FallbackUris...)
+
+	var err error
+	if len(allURIs) > 1 {
+		err = s.engine.ConnectWithFallback(allURIs, req.TlsFingerprint, req.KillSwitch, req.MaskingSni)
+	} else {
+		err = s.engine.Connect(req.ConfigUri, req.TlsFingerprint, req.KillSwitch, req.MaskingSni)
+	}
 	if err != nil {
 		return &pb.ConnectResponse{
 			Success: false,

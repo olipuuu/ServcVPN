@@ -18,10 +18,11 @@ service VPNService {
 }
 
 message ConnectRequest {
-  string config_uri = 1;       // vless://, trojan://, vmess:// URI
+  string config_uri = 1;       // primary vless://, trojan://, vmess:// URI
   string tls_fingerprint = 2;  // chrome, firefox, safari, edge, random, auto
   bool kill_switch = 3;
   string masking_sni = 4;      // override SNI to mask as vk.com, ok.ru, etc.
+  repeated string fallback_uris = 5; // fallback URIs to try if primary fails
 }
 
 message ConnectResponse {
